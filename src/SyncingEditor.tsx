@@ -1,12 +1,12 @@
 import React, { useState, useRef, useEffect } from "react"
 import { Editor } from "slate-react"
-import Mitt from "mitt"
 import { initialValue } from "./slateInitialValue"
 import { Operation } from "slate"
+import io from "socket.io-client"
+
+const socket = io("http://localhost:4001")
 
 interface Props {}
-
-const emitter = new Mitt()
 
 export const SyncingEditor: React.FC<Props> = () => {
   const [value, setValue] = useState(initialValue)
@@ -15,13 +15,16 @@ export const SyncingEditor: React.FC<Props> = () => {
   const remote = useRef(false)
 
   useEffect(() => {
-    ;(emitter as any).on("*", (type: string, ops: Operation[]) => {
-      if (id.current !== type) {
-        remote.current = true
-        ops.forEach(op => editor.current!.applyOperation(op))
-        remote.current = false
+    socket.on(
+      "new-remote-operations",
+      ({ editorId, ops }: { editorId: string; ops: Operation[] }) => {
+        if (id.current !== editorId) {
+          remote.current = true
+          ops.forEach((op: Operation) => editor.current!.applyOperation(op))
+          remote.current = false
+        }
       }
-    })
+    )
   }, [])
 
   return (
@@ -51,7 +54,10 @@ export const SyncingEditor: React.FC<Props> = () => {
           .map((o: any) => ({ ...o, data: { source: "two" } }))
 
         if (ops.length && !remote.current) {
-          emitter.emit(id.current, ops)
+          socket.emit("new-operations", {
+            editorId: id.current,
+            ops: ops
+          })
         }
       }}
     />
