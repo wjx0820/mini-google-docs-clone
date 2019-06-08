@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react"
 import { Editor } from "slate-react"
 import { initialValue } from "./slateInitialValue"
-import { Operation } from "slate"
+import { Operation, Value, ValueJSON } from "slate"
 import io from "socket.io-client"
 
 const socket = io("http://localhost:4001")
@@ -15,6 +15,12 @@ export const SyncingEditor: React.FC<Props> = () => {
   const remote = useRef(false)
 
   useEffect(() => {
+    socket.once("init-value", (value: ValueJSON) => {
+      setValue(Value.fromJSON(value))
+    })
+
+    socket.emit("send-value")
+
     socket.on(
       "new-remote-operations",
       ({ editorId, ops }: { editorId: string; ops: Operation[] }) => {
@@ -25,6 +31,10 @@ export const SyncingEditor: React.FC<Props> = () => {
         }
       }
     )
+
+    return () => {
+      socket.off("new-remote-operations")
+    }
   }, [])
 
   return (
@@ -56,7 +66,8 @@ export const SyncingEditor: React.FC<Props> = () => {
         if (ops.length && !remote.current) {
           socket.emit("new-operations", {
             editorId: id.current,
-            ops: ops
+            ops: ops,
+            value: opts.value.toJSON()
           })
         }
       }}
