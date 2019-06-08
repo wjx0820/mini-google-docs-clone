@@ -1,28 +1,31 @@
 import React, { useState, useRef, useEffect } from "react"
 import { Editor } from "slate-react"
 import { initialValue } from "./slateInitialValue"
-import { Operation, Value, ValueJSON } from "slate"
+import { Operation, Value } from "slate"
 import io from "socket.io-client"
 
 const socket = io("http://localhost:4001")
 
-interface Props {}
+interface Props {
+  groupId: string
+}
 
-export const SyncingEditor: React.FC<Props> = () => {
+export const SyncingEditor: React.FC<Props> = ({ groupId }) => {
   const [value, setValue] = useState(initialValue)
   const id = useRef(`${Date.now()}`)
   const editor = useRef<Editor | null>(null)
   const remote = useRef(false)
 
   useEffect(() => {
-    socket.once("init-value", (value: ValueJSON) => {
-      setValue(Value.fromJSON(value))
-    })
+    fetch(`http://localhost:4001/groups/${groupId}`).then(x =>
+      x.json().then(data => {
+        setValue(Value.fromJSON(data))
+      })
+    )
 
-    socket.emit("send-value")
-
+    const eventName = `new-remote-operations-${groupId}`
     socket.on(
-      "new-remote-operations",
+      eventName,
       ({ editorId, ops }: { editorId: string; ops: Operation[] }) => {
         if (id.current !== editorId) {
           remote.current = true
@@ -33,9 +36,9 @@ export const SyncingEditor: React.FC<Props> = () => {
     )
 
     return () => {
-      socket.off("new-remote-operations")
+      socket.off(eventName)
     }
-  }, [])
+  }, [groupId, id])
 
   return (
     <Editor
@@ -67,7 +70,8 @@ export const SyncingEditor: React.FC<Props> = () => {
           socket.emit("new-operations", {
             editorId: id.current,
             ops: ops,
-            value: opts.value.toJSON()
+            value: opts.value.toJSON(),
+            groupId
           })
         }
       }}

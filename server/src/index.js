@@ -1,8 +1,9 @@
 const app = require("express")()
 const http = require("http").createServer(app)
 const io = require("socket.io")(http)
+const cors = require("cors")
 
-let value = {
+let initialEditorValue = {
   document: {
     nodes: [
       {
@@ -20,15 +21,28 @@ let value = {
   }
 }
 
-io.on("connection", function(socket) {
-  socket.on("send-value", function() {
-    io.emit("init-value", value)
-  })
+const groupData = {}
 
+io.on("connection", function(socket) {
   socket.on("new-operations", function(data) {
-    value = data.value
-    io.emit("new-remote-operations", data)
+    groupData[data.groupId] = data.value
+    io.emit(`new-remote-operations-${data.groupId}`, data)
   })
+})
+
+app.use(
+  cors({
+    origin: "http://localhost:3000"
+  })
+)
+
+app.get("/groups/:id", (req, res) => {
+  const { id } = req.params
+  if (!(id in groupData)) {
+    groupData[id] = initialEditorValue
+  }
+
+  res.send(groupData[id])
 })
 
 http.listen(4001, function() {
