@@ -41,40 +41,69 @@ export const SyncingEditor: React.FC<Props> = ({ groupId }) => {
   }, [groupId, id])
 
   return (
-    <Editor
-      ref={editor}
-      style={{
-        backgroundColor: "#fafafa",
-        maxWidth: 800,
-        minHeight: 150
-      }}
-      value={value}
-      onChange={opts => {
-        setValue(opts.value)
+    <>
+      <button
+        onMouseDown={e => {
+          e.preventDefault()
+          //bold selected text
+          editor.current!.toggleMark("bold")
+        }}
+      >
+        BOLD
+      </button>
+      <button
+        onMouseDown={e => {
+          e.preventDefault()
+          //bold selected text
+          editor.current!.toggleMark("italic")
+        }}
+      >
+        ITALIC
+      </button>
+      <Editor
+        ref={editor}
+        style={{
+          backgroundColor: "#fafafa",
+          maxWidth: 800,
+          minHeight: 150
+        }}
+        value={value}
+        renderMark={(props, _editor, next) => {
+          if (props.mark.type === "bold") {
+            return <strong>{props.children}</strong>
+          } else if (props.mark.type === "italic") {
+            return <em>{props.children}</em>
+          }
 
-        const ops = opts.operations
-          .filter(o => {
-            if (o) {
-              return (
-                o.type !== "set_selection" &&
-                o.type !== "set_value" &&
-                (!o.data || !o.data.has("source"))
-              )
-            }
-            return false
-          })
-          .toJS()
-          .map((o: any) => ({ ...o, data: { source: "two" } }))
+          return next()
+        }}
+        onChange={opts => {
+          setValue(opts.value)
 
-        if (ops.length && !remote.current) {
-          socket.emit("new-operations", {
-            editorId: id.current,
-            ops: ops,
-            value: opts.value.toJSON(),
-            groupId
-          })
-        }
-      }}
-    />
+          const ops = opts.operations
+            .filter(o => {
+              if (o) {
+                return (
+                  o.type !== "set_selection" &&
+                  o.type !== "set_value" &&
+                  (!o.data || !o.data.has("source"))
+                )
+              }
+              return false
+            })
+            .toJS()
+            .map((o: any) => ({ ...o, data: { source: "two" } }))
+
+          if (ops.length && !remote.current) {
+            socket.emit("new-operations", {
+              editorId: id.current,
+              ops: ops,
+              value: opts.value.toJSON(),
+              groupId
+            })
+          }
+        }}
+      />
+    </>
   )
 }
